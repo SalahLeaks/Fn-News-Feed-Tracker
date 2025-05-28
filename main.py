@@ -12,6 +12,9 @@ DEVICE_ID = 'YOUR_DEVICE_ID'
 SECRET = 'YOUR_DEVICE_SECRET'
 ACCOUNT_ID = 'YOUR_ACCOUNT_ID'
 
+# New: Role ID to ping when multiple news items are sent
+ROLE_ID = YOUR_ROLE_ID  # replace with your role ID as an integer
+
 def get_refresh_token():
     print("Debug: Attempting to get refresh token...")
     url = 'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token'
@@ -91,22 +94,23 @@ def get_news(token):
             raise Exception("Access token expired")
     return {}
 
-def send_discord_message(title, body, image_url, thumbnail_url):
-    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}")
-    data = {
-        "embeds": [
-            {
-                "title": title,
-                "description": body,
-                "image": {
-                    "url": image_url
-                },
-                "thumbnail": {
-                    "url": thumbnail_url
-                }
+def send_discord_message(title, body, image_url, thumbnail_url, content=None):
+    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}, Content: {content}")
+    data = {}
+    if content:
+        data["content"] = content
+    data["embeds"] = [
+        {
+            "title": title,
+            "description": body,
+            "image": {
+                "url": image_url
+            },
+            "thumbnail": {
+                "url": thumbnail_url
             }
-        ]
-    }
+        }
+    ]
     try:
         response = requests.post(WEBHOOK_URL, json=data)
         response.raise_for_status()
@@ -173,13 +177,24 @@ def main():
                 new_news_items = [item for item in current_news_list if item not in old_news_data]
                 if new_news_items:
                     print("Debug: New news detected, sending updates to Discord...")
-                    for current_news in new_news_items:
+                    # New: ping role once if more than one news item
+                    ping_once = len(new_news_items) > 1
+                    for idx, current_news in enumerate(new_news_items):
                         title = current_news.get('FullScreenTitle', 'No Title')
                         body = current_news.get('FullScreenBody', 'No Body')
                         image_url = current_news.get('FullScreenBackground', {}).get('Image', [{}])[0].get('url', '')
                         thumbnail_url = current_news.get('TileImage', {}).get('Image', [{}])[0].get('url', '')
 
-                        send_discord_message(title, body, image_url, thumbnail_url)
+                        if idx == 0 and ping_once:
+                            send_discord_message(
+                                title,
+                                body,
+                                image_url,
+                                thumbnail_url,
+                                content=f"<@&{ROLE_ID}>"
+                            )
+                        else:
+                            send_discord_message(title, body, image_url, thumbnail_url)
 
                     # Update old news data with the complete current list
                     save_news_data(current_news_list)
