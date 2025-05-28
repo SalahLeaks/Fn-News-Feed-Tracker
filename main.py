@@ -3,17 +3,17 @@ import time
 import json
 import os
 
-WEBHOOK_URL = 'YOUR_WEBHOOK_URL'
+WEBHOOK_URL      = 'YOUR_WEBHOOK_URL'
 FORTNITE_API_URL = 'https://prm-dialogue-public-api-prod.edea.live.use1a.on.epicgames.com/api/v1/fortnite-br/channel/motd/target'
-CLIENT_SECRET = 'M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWY1MzgxMmU='
-OLD_NEWS_FILE = 'old_news.json'
+CLIENT_SECRET    = 'M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWU1MzgxMmU='
+OLD_NEWS_FILE    = 'old_news.json'
 
-DEVICE_ID = 'YOUR_DEVICE_ID'
-SECRET = 'YOUR_DEVICE_SECRET'
-ACCOUNT_ID = 'YOUR_ACCOUNT_ID'
+DEVICE_ID    = 'YOUR_DEVICE_ID'
+SECRET       = 'YOUR_DEVICE_SECRET'
+ACCOUNT_ID   = 'YOUR_ACCOUNT_ID'
 
-# New: Role ID to ping when multiple news items are sent
-ROLE_ID = YOUR_ROLE_ID  # replace with your role ID as an integer
+# New: Role to ping for MOTD news (always ping once)
+ROLE_ID_MOTD = YOUR_MOTD_ROLE_ID  # integer
 
 def get_refresh_token():
     print("Debug: Attempting to get refresh token...")
@@ -56,11 +56,7 @@ def get_access_token(refresh_token):
         response.raise_for_status()
         response_data = response.json()
         print(f"Debug: Access Token Response: {response_data}")
-        if 'access_token' in response_data:
-            return response_data['access_token']
-        else:
-            print("Error: 'access_token' not found in the response.")
-            return None
+        return response_data.get('access_token')
     except Exception as e:
         print(f"Error: Failed to get access token. Exception: {e}")
         return None
@@ -86,16 +82,14 @@ def get_news(token):
         response_data = response.json()
         print(f"Debug: News Response: {response_data}")
         return response_data
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
     except Exception as e:
         print(f"Error: Failed to fetch news. Exception: {e}")
-        if '401' in str(e):  # Token expired
+        if '401' in str(e):
             raise Exception("Access token expired")
     return {}
 
 def send_discord_message(title, body, image_url, thumbnail_url, content=None):
-    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}, Content: {content}")
+    print(f"Debug: Sending Discord message: {title}")
     data = {}
     if content:
         data["content"] = content
@@ -103,29 +97,23 @@ def send_discord_message(title, body, image_url, thumbnail_url, content=None):
         {
             "title": title,
             "description": body,
-            "image": {
-                "url": image_url
-            },
-            "thumbnail": {
-                "url": thumbnail_url
-            }
+            "image": {"url": image_url},
+            "thumbnail": {"url": thumbnail_url}
         }
     ]
     try:
         response = requests.post(WEBHOOK_URL, json=data)
         response.raise_for_status()
         print(f"Debug: Discord Response Status Code: {response.status_code}")
-        return response.status_code
     except Exception as e:
         print(f"Error: Failed to send Discord message. Exception: {e}")
-        return None
 
 def save_news_data(news_data):
     print(f"Debug: Saving news data: {news_data}")
     try:
         with open(OLD_NEWS_FILE, 'w') as file:
             json.dump(news_data, file)
-        print(f"Debug: News data successfully saved.")
+        print("Debug: News data successfully saved.")
     except Exception as e:
         print(f"Error: Failed to save news data. Exception: {e}")
 
@@ -144,70 +132,47 @@ def load_old_news_data():
     return []
 
 def main():
-    try:
-        print("Debug: Starting main process...")
-        old_news_data = load_old_news_data()
-        if not old_news_data:
-            print("Debug: No old news found, starting fresh.")
+    old_news_data = load_old_news_data() or []
+    refresh_token = get_refresh_token()
+    if not refresh_token:
+        print("Error: Failed to obtain refresh token.")
+        return
 
-        refresh_token = get_refresh_token()
-        if not refresh_token:
-            print("Error: Failed to obtain refresh token.")
-            return
-
-        while True:
-            access_token = get_access_token(refresh_token)
-            if not access_token:
-                print("Error: Failed to obtain access token.")
-                refresh_token = get_refresh_token()  # Get a new refresh token
+    while True:
+        access_token = get_access_token(refresh_token)
+        if not access_token:
+            print("Error: Failed to obtain access token.")
+            refresh_token = get_refresh_token()
+            continue
+        try:
+            news_data = get_news(access_token)
+        except Exception as e:
+            if str(e) == "Access token expired":
+                refresh_token = get_refresh_token()
                 continue
-            try:
-                news_data = get_news(access_token)
-            except Exception as e:
-                if str(e) == "Access token expired":
-                    print("Debug: Refreshing access token...")
-                    refresh_token = get_refresh_token()  # Get a new refresh token
-                    continue
 
-            if 'contentItems' in news_data and news_data['contentItems']:
-                current_news_list = [item['contentFields'] for item in news_data['contentItems']]
-                print(f"Debug: Current news fetched: {current_news_list}")
+        if 'contentItems' in news_data and news_data['contentItems']:
+            current_list = [item['contentFields'] for item in news_data['contentItems']]
+            new_items = [item for item in current_list if item not in old_news_data]
+            if new_items:
+                # always ping once (even if only one)
+                ping_once = True
+                for idx, item in enumerate(new_items):
+                    title         = item.get('FullScreenTitle', 'No Title')
+                    body          = item.get('FullScreenBody',  'No Body')
+                    image_url     = item.get('FullScreenBackground', {}).get('Image', [{}])[0].get('url','')
+                    thumbnail_url = item.get('TileImage', {}).get('Image', [{}])[0].get('url','')
+                    if idx == 0 and ping_once:
+                        send_discord_message(
+                            title, body, image_url, thumbnail_url,
+                            content=f"<@&{ROLE_ID_MOTD}>"
+                        )
+                    else:
+                        send_discord_message(title, body, image_url, thumbnail_url)
+                save_news_data(current_list)
+                old_news_data = current_list
 
-                # Determine which items are new (not present in the previously saved news)
-                new_news_items = [item for item in current_news_list if item not in old_news_data]
-                if new_news_items:
-                    print("Debug: New news detected, sending updates to Discord...")
-                    # New: ping role once if more than one news item
-                    ping_once = len(new_news_items) > 1
-                    for idx, current_news in enumerate(new_news_items):
-                        title = current_news.get('FullScreenTitle', 'No Title')
-                        body = current_news.get('FullScreenBody', 'No Body')
-                        image_url = current_news.get('FullScreenBackground', {}).get('Image', [{}])[0].get('url', '')
-                        thumbnail_url = current_news.get('TileImage', {}).get('Image', [{}])[0].get('url', '')
-
-                        if idx == 0 and ping_once:
-                            send_discord_message(
-                                title,
-                                body,
-                                image_url,
-                                thumbnail_url,
-                                content=f"<@&{ROLE_ID}>"
-                            )
-                        else:
-                            send_discord_message(title, body, image_url, thumbnail_url)
-
-                    # Update old news data with the complete current list
-                    save_news_data(current_news_list)
-                    old_news_data = current_news_list
-                else:
-                    print("Debug: No new news detected.")
-            else:
-                print("Debug: No contentItems found in the response.")
-
-            print("Debug: Sleeping for 60 seconds before the next iteration.")
-            time.sleep(60)
-    except Exception as e:
-        print(f"Error: An error occurred: {e}")
+        time.sleep(60)
 
 if __name__ == "__main__":
     main()
