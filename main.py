@@ -1,11 +1,11 @@
+Why this code gets error when trying to get token 
+
 import requests
 import time
 import json
 import os
 
 WEBHOOK_URL = 'YOUR_WEBHOOK_URL'
-ROLE_ID = 'YOUR_ROLE_ID'  # e.g. '123456789012345678'
-
 FORTNITE_API_URL = 'https://prm-dialogue-public-api-prod.edea.live.use1a.on.epicgames.com/api/v1/fortnite-br/channel/motd/target'
 CLIENT_SECRET = 'M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWY1MzgxMmU='
 OLD_NEWS_FILE = 'old_news.json'
@@ -93,19 +93,22 @@ def get_news(token):
             raise Exception("Access token expired")
     return {}
 
-def send_discord_message(title, body, image_url, thumbnail_url, ping=None):
-    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}, Ping: {ping}")
-    data = {}
-    if ping:
-        data["content"] = ping
-    data["embeds"] = [
-        {
-            "title": title,
-            "description": body,
-            "image": {"url": image_url},
-            "thumbnail": {"url": thumbnail_url}
-        }
-    ]
+def send_discord_message(title, body, image_url, thumbnail_url):
+    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}")
+    data = {
+        "embeds": [
+            {
+                "title": title,
+                "description": body,
+                "image": {
+                    "url": image_url
+                },
+                "thumbnail": {
+                    "url": thumbnail_url
+                }
+            }
+        ]
+    }
     try:
         response = requests.post(WEBHOOK_URL, json=data)
         response.raise_for_status()
@@ -172,24 +175,13 @@ def main():
                 new_news_items = [item for item in current_news_list if item not in old_news_data]
                 if new_news_items:
                     print("Debug: New news detected, sending updates to Discord...")
-                    role_pinged = False
-
                     for current_news in new_news_items:
                         title = current_news.get('FullScreenTitle', 'No Title')
                         body = current_news.get('FullScreenBody', 'No Body')
-                        image_url = current_news.get('FullScreenBackground', {}) \
-                                               .get('Image', [{}])[0] \
-                                               .get('url', '')
-                        thumbnail_url = current_news.get('TileImage', {}) \
-                                                   .get('Image', [{}])[0] \
-                                                   .get('url', '')
+                        image_url = current_news.get('FullScreenBackground', {}).get('Image', [{}])[0].get('url', '')
+                        thumbnail_url = current_news.get('TileImage', {}).get('Image', [{}])[0].get('url', '')
 
-                        if not role_pinged:
-                            ping = f"<@&{ROLE_ID}>"
-                            send_discord_message(title, body, image_url, thumbnail_url, ping)
-                            role_pinged = True
-                        else:
-                            send_discord_message(title, body, image_url, thumbnail_url)
+                        send_discord_message(title, body, image_url, thumbnail_url)
 
                     # Update old news data with the complete current list
                     save_news_data(current_news_list)
