@@ -1,18 +1,18 @@
-Why this code gets error when trying to get token 
-
 import requests
 import time
 import json
 import os
 
-WEBHOOK_URL = 'YOUR_WEBHOOK_URL'
+WEBHOOK_URL = 'https://discord.com/api/webhooks/1375106669679476896/5cGQcznpWiFKWiRh5rfcphSVVg2_OmIMyGpInOcDb2wlV6fwTWhDBAN2Zli18cPFI9lr'
 FORTNITE_API_URL = 'https://prm-dialogue-public-api-prod.edea.live.use1a.on.epicgames.com/api/v1/fortnite-br/channel/motd/target'
 CLIENT_SECRET = 'M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWY1MzgxMmU='
 OLD_NEWS_FILE = 'old_news.json'
 
-DEVICE_ID = 'YOUR_DEVICE_ID'
-SECRET = 'YOUR_DEVICE_SECRET'
-ACCOUNT_ID = 'YOUR_ACCOUNT_ID'
+PING_USER_ID = '1377251223861858314'
+
+DEVICE_ID = '721c9ae137974410a4488e05002feccb'
+SECRET = 'SFBLJ2WDSEPTSYJSSRFQPMVL5WDYBN6G'
+ACCOUNT_ID = 'f8ddb4a666424dca93c2fa8142c947bb'
 
 def get_refresh_token():
     print("Debug: Attempting to get refresh token...")
@@ -94,21 +94,18 @@ def get_news(token):
     return {}
 
 def send_discord_message(title, body, image_url, thumbnail_url):
-    print(f"Debug: Sending Discord message with Title: {title}, Body: {body}, Image URL: {image_url}, Thumbnail URL: {thumbnail_url}")
     data = {
+        "content": f"<@{PING_USER_ID}>",
         "embeds": [
             {
                 "title": title,
                 "description": body,
-                "image": {
-                    "url": image_url
-                },
-                "thumbnail": {
-                    "url": thumbnail_url
-                }
+                "image": {"url": image_url},
+                "thumbnail": {"url": thumbnail_url}
             }
         ]
     }
+    
     try:
         response = requests.post(WEBHOOK_URL, json=data)
         response.raise_for_status()
@@ -198,3 +195,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
