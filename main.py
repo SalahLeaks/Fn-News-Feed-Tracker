@@ -3,16 +3,16 @@ import time
 import json
 import os
 
-WEBHOOK_URL = 'https://discord.com/api/webhooks/1375106669679476896/5cGQcznpWiFKWiRh5rfcphSVVg2_OmIMyGpInOcDb2wlV6fwTWhDBAN2Zli18cPFI9lr'
+WEBHOOK_URL = 'yours'
 FORTNITE_API_URL = 'https://prm-dialogue-public-api-prod.edea.live.use1a.on.epicgames.com/api/v1/fortnite-br/channel/motd/target'
 CLIENT_SECRET = 'M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWY1MzgxMmU='
 OLD_NEWS_FILE = 'old_news.json'
 
-PING_USER_ID = '1377251223861858314'
+PING_USER_ID = 'yours'
 
-DEVICE_ID = '721c9ae137974410a4488e05002feccb'
-SECRET = 'SFBLJ2WDSEPTSYJSSRFQPMVL5WDYBN6G'
-ACCOUNT_ID = 'f8ddb4a666424dca93c2fa8142c947bb'
+DEVICE_ID = 'yours'
+SECRET = 'yours'
+ACCOUNT_ID = 'yours'
 
 def get_refresh_token():
     print("Debug: Attempting to get refresh token...")
@@ -95,7 +95,7 @@ def get_news(token):
 
 def send_discord_message(title, body, image_url, thumbnail_url):
     data = {
-        "content": f"<@{PING_USER_ID}>",
+        "content": f"<@&{PING_USER_ID}>",
         "embeds": [
             {
                 "title": title,
@@ -195,4 +195,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
