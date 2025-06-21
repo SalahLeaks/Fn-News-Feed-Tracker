@@ -154,21 +154,20 @@ def main():
             access_token = get_access_token(refresh_token)
             if not access_token:
                 print("Error: Failed to obtain access token.")
-                refresh_token = get_refresh_token()  # Get a new refresh token
+                refresh_token = get_refresh_token()  
                 continue
             try:
                 news_data = get_news(access_token)
             except Exception as e:
                 if str(e) == "Access token expired":
                     print("Debug: Refreshing access token...")
-                    refresh_token = get_refresh_token()  # Get a new refresh token
+                    refresh_token = get_refresh_token()  
                     continue
 
             if 'contentItems' in news_data and news_data['contentItems']:
                 current_news_list = [item['contentFields'] for item in news_data['contentItems']]
                 print(f"Debug: Current news fetched: {current_news_list}")
 
-                # Determine which items are new (not present in the previously saved news)
                 new_news_items = [item for item in current_news_list if item not in old_news_data]
                 if new_news_items:
                     print("Debug: New news detected, sending updates to Discord...")
@@ -180,7 +179,6 @@ def main():
 
                         send_discord_message(title, body, image_url, thumbnail_url)
 
-                    # Update old news data with the complete current list
                     save_news_data(current_news_list)
                     old_news_data = current_news_list
                 else:
